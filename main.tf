@@ -16,7 +16,7 @@ module "adobe_analytics_audi_ingestion_glue_job" {
   script_bucket             = "module.glue_scripts_bucket.s3_bucket"
   target_bucket_kms_key_arn = "module.processed_data_lf_bucket.aws_kms_key_arn"
   glue_job_local_path       = "../../../etl/ingest_raw_data/main.py"
-  extra_py_files_source_dir = "src/db/test.txt"
+  extra_py_files_source_dir = "src/db"
   timeout                   = 15
   enable_additional_policy  = true
   additional_policy         = "data.aws_iam_policy_document.project_glue_job_policy.json"

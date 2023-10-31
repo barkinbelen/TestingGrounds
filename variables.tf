@@ -4,11 +4,13 @@
 variable "git_repository" {
   type        = string
   description = "Repository where the infrastructure was deployed from."
+  default = "test"
 }
 
 variable "stage" {
   description = "Specify to which project this resource belongs, no default value to allow proper validation of project setup"
   type        = string
+  default = "test"
 }
 
 variable "aws_region" {
