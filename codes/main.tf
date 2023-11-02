@@ -56,6 +56,17 @@ resource "random_string" "track_glue_job_extra_zip_changes" {
   special = false
 }
 
+data "archive_file" "glue_job_extra_zip" {
+  count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0 
+  type        = "zip"
+  source_dir  = var.extra_py_files_source_dir
+  output_path = "./bin/zip_files/${random_string.track_glue_job_extra_zip_changes[count.index].result}_${timestamp()}.zip"
+  depends_on = [
+    random_string.track_glue_job_extra_zip_changes
+  ]
+}
+
+
 resource "null_resource" "check_if_there_are_changed_files" {
   count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0
 
@@ -64,40 +75,12 @@ resource "null_resource" "check_if_there_are_changed_files" {
   }
 
   provisioner "local-exec" {
-    command     = "target_dir=${var.extra_py_files_source_dir} main_branch_name=feature/test ./bin/check_for_updated_files.sh"
+    command     = "target_dir=${var.extra_py_files_source_dir} zip_path=${data.archive_file.glue_job_extra_zip[count.index].output_path} bucket_uri=${var.script_bucket}/new_zip main_branch_name=main ./bin/check_for_updated_files.sh"
     interpreter = ["bash", "-c"]
   }
+  depends_on = [ data.archive_file.glue_job_extra_zip ]
 }
 
-data "external" "result_check_for_updated_files" {
-  count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0
-   program = ["bash", "/Users/barkin/Projects/github/TestingGrounds/bin/result_for_updated_file.sh"]
-  
-  depends_on = [null_resource.check_if_there_are_changed_files]
-}
-
-resource "null_resource" "trigger_new_zip" {
-  count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0
-
-  triggers = {
-    # Use the exit_status output variable to trigger this resource if the script is "true."
-    if_true = data.external.result_check_for_updated_files[0].result.result == "1" ? timestamp() : null
-  }
-
-  depends_on = [data.external.result_check_for_updated_files]
-}
-
-data "archive_file" "glue_job_extra_zip" {
-  count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0
-
-  type        = "zip"
-  source_dir  = var.extra_py_files_source_dir
-  output_path = "${random_string.track_glue_job_extra_zip_changes[count.index].result}_${timestamp()}.zip"
-  depends_on = [
-    random_string.track_glue_job_extra_zip_changes,
-    null_resource.trigger_new_zip
-  ]
-}
 
 # resource "aws_s3_object" "glue_job_extra_zip" {
 #   count = var.enable && var.extra_py_files_source_dir != "" ? 1 : 0
