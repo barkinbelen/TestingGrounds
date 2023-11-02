@@ -75,7 +75,7 @@ resource "null_resource" "check_if_there_are_changed_files" {
   }
 
   provisioner "local-exec" {
-    command     = "target_dir=${var.extra_py_files_source_dir} zip_path=${data.archive_file.glue_job_extra_zip[count.index].output_path} bucket_uri=${var.script_bucket}/new_zip main_branch_name=main ./bin/check_for_updated_files.sh"
+    command     = "bucket=test-tf-eradev-cloud key=bb target_dir=${var.extra_py_files_source_dir} zip_path=${data.archive_file.glue_job_extra_zip[count.index].output_path} main_branch_name=main ./bin/check_for_updated_files.sh"
     interpreter = ["bash", "-c"]
   }
   depends_on = [ data.archive_file.glue_job_extra_zip ]
