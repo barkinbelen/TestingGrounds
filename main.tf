@@ -1,8 +1,8 @@
 module "adobe_analytics_audi_ingestion_glue_job" {
-  source = "./codes"
+  source = "git@github.com:diogoaurelio/dai-cap-tf-module-aws-glue-job.git"
   enable = true
 
-  create_kms_key = true
+  create_kms_key = false
   git_repository = var.git_repository
 
   stage                     = var.stage
@@ -13,7 +13,7 @@ module "adobe_analytics_audi_ingestion_glue_job" {
   glue_number_of_workers    = 5
   max_concurrent_runs       = 100
   worker_type               = "G.1X"
-  script_bucket             = "module.glue_scripts_bucket.s3_bucket"
+  script_bucket             = "barkin-glue-test"
   target_bucket_kms_key_arn = "module.processed_data_lf_bucket.aws_kms_key_arn"
   glue_job_local_path       = "../../../etl/ingest_raw_data/main.py"
   extra_py_files_source_dir = "src/db"
@@ -25,7 +25,7 @@ module "adobe_analytics_audi_ingestion_glue_job" {
   default_arguments = {
     # Glue default arguments
     "--job-language"                     = "python"
-    "--TempDir"                          = "s3://barkin/glue-job-tmp/"
+    "--TempDir"                          = "s3://barkin-glue-test/glue-job-tmp/"
     "--region"                           = var.aws_region
     "--enable-metrics"                   = ""
     "--enable-continuous-cloudwatch-log" = "true"

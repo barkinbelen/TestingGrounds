@@ -179,11 +179,11 @@ variable "worker_type" {
   default     = "G.1X"
 }
 
-# variable "additional_principals" {
-#   description = "Additional ARNs of principals to add to the KMS Key Policy"
-#   type        = list(string)
-#   default     = []
-# }
+variable "additional_principals" {
+  description = "Additional ARNs of principals to add to the KMS Key Policy"
+  type        = list(string)
+  default     = []
+}
 
 variable "max_capacity" {
   description = "The maximum number of AWS Glue data processing units (DPUs) that can be allocated when this job runs. Required when pythonshell is set, accept either 0.0625 or 1.0."

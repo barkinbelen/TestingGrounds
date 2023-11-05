@@ -7,7 +7,7 @@ feature to create a KMS key is just still enabled to ensure backwards compatibil
 module "glue_job" {
   source = "git::ssh://git@cap-tf-module-aws-glue-job/vwdfive/cap-tf-module-aws-glue-job.git?ref=tags/0.1.0"
   ...
-}ssssssssssss
+}
 ```
 
 ## Requirements
@@ -97,7 +97,6 @@ In cloudwatch logs, there are 3 Log Groups used/created by a Glue Job and they a
 |------|---------|
 | <a name="provider_archive"></a> [archive](#provider\_archive) | >= 2.0 |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 4.0 |
-| <a name="provider_external"></a> [external](#provider\_external) | 2.3.1 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.1 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.0 |
 
@@ -122,17 +121,14 @@ In cloudwatch logs, there are 3 Log Groups used/created by a Glue Job and they a
 | [aws_iam_role_policy_attachment.additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_kms_alias.cloudwatch_encryption](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.cloudwatch_encryption](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
-| [aws_s3_object.glue_job_extra_zip](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
 | [aws_s3_object.main_glue_job_script](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
 | [null_resource.check_if_there_are_changed_files](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
-| [null_resource.trigger_new_zip](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
 | [random_string.track_glue_job_extra_zip_changes](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [archive_file.glue_job_extra_zip](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_iam_policy_document.assume_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.kms_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [external_external.result_check_for_updated_files](https://registry.terraform.io/providers/hashicorp/external/2.3.1/docs/data-sources/external) | data source |
 
 ## Inputs
 
