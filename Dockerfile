@@ -1,4 +1,4 @@
-FROM jenkins/inbound-agent:latest-alpine-jdk8 as jnlp
+FROM jenkins/inbound-agent:alpine as jnlp
 FROM moby/buildkit as buildkit
 
 FROM maven:3.6.3-jdk-8-slim

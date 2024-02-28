@@ -11,12 +11,9 @@ pipeline {
                     git branch: 'main', url: 'https://github.com/barkinbelen/TestingGrounds.git'
                     }
                 script {
-                    def customWorkspace = 'jenkins-ecs-agent/archlinux'
-                    dir (customWorkspace) {
                         sh '/usr/bin/aws --profile devops-mynet ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 920907312150.dkr.ecr.eu-central-1.amazonaws.com'
-                        docker.build("920907312150.dkr.ecr.eu-central-1.amazonaws.com/jenkins-ecs-agent:latest").push
+                        docker.build("920907312150.dkr.ecr.eu-central-1.amazonaws.com/jenkins-ecs-agent:latest").push()
                     }
-                }
                 }
             }
         }
