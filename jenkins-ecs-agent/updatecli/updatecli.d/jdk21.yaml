@@ -1,0 +1,112 @@
+---
+name: Bump JDK21 version for all Linux images
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+  temurin21-binaries:
+    kind: "github"
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "adoptium"
+      repository: "temurin21-binaries"
+      token: '{{ requiredEnv .github.token }}'
+      branch: "main"
+
+sources:
+  getLatestJDK21Version:
+    name: Get the latest Adoptium JDK21 version
+    kind: gittag
+    scmid: temurin21-binaries
+    spec:
+      versionfilter:
+        kind: regex
+        pattern: "\\d$"
+    transformers:
+      - trimprefix: "jdk-"
+      - replacer:
+          from: "+"
+          to: "_"
+
+# Architectures must match those of the targets in docker-bake.hcl
+conditions:
+  checkTemurinAlpineDockerImage:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-alpine" is available
+    disablesourceinput: true
+    spec:
+      architectures:
+        - amd64
+        - arm64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-alpine'
+  checkTemurinDebianDockerImages:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-focal" is available
+    disablesourceinput: true
+    spec:
+      architectures:
+        - amd64
+        - arm64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-focal'
+  checkTemurinNanoserver2019DockerImage:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-nanoserver-1809" is available
+    disablesourceinput: true
+    spec:
+      architecture: amd64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-nanoserver-1809'
+  checkTemurinWindowsCore2019DockerImage:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-windowsservercore-1809" is available
+    disablesourceinput: true
+    spec:
+      architecture: amd64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-windowsservercore-1809'
+  checkTemurinNanoserver2022DockerImage:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-nanoserver-ltsc2022" is available
+    disablesourceinput: true
+    spec:
+      architecture: amd64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-nanoserver-ltsc2022'
+  checkTemurinWindowsCore2022DockerImage:
+    kind: dockerimage
+    name: Check if the container image "eclipse-temurin:<lastVersion>-jdk-windowsservercore-ltsc2022" is available
+    disablesourceinput: true
+    spec:
+      architecture: amd64
+      image: eclipse-temurin
+      tag: '{{ source "getLatestJDK21Version" }}-jdk-windowsservercore-ltsc2022'
+
+targets:
+  setJDK21Version:
+    name: "Bump JDK21 version for Linux images in the docker-bake.hcl file"
+    kind: hcl
+    spec:
+      file: docker-bake.hcl
+      path: variable.JAVA21_VERSION.default
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump JDK21 version to {{ source "getLatestJDK21Version" }}
+    spec:
+      labels:
+        - dependencies
+        - jdk21
