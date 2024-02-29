@@ -37,9 +37,11 @@ RUN jlink \
 FROM archlinux:base-20240101.0.204074
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" 
 RUN pacman -Syu --noconfirm
-RUN pacman -Syu unzip --noconfirm
+RUN pacman -Syu unzip vim jq --noconfirm
 RUN unzip awscliv2.zip 
 RUN ./aws/install 
+COPY assume_role.sh .
+RUN chmod +x assume_role.sh
 ARG user=jenkins
 ARG group=jenkins
 ARG uid=1000
@@ -69,6 +71,11 @@ RUN mkdir /home/"${user}"/.jenkins && mkdir -p "${AGENT_WORKDIR}"
 VOLUME /home/"${user}"/.jenkins
 VOLUME "${AGENT_WORKDIR}"
 WORKDIR /home/"${user}"
+USER root
+RUN mv /assume_role.sh /home/jenkins/
+USER "${user}"
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && mkdir -p ~/.local/bin && mv ./kubectl ~/.local/bin/kubectl
 ENV user=${user}
 LABEL \
     org.opencontainers.image.vendor="Jenkins project" \
@@ -77,4 +84,5 @@ LABEL \
     org.opencontainers.image.version="${VERSION}" \
     org.opencontainers.image.url="https://www.jenkins.io/" \
     org.opencontainers.image.source="https://github.com/jenkinsci/docker-agent" \
+
     org.opencontainers.image.licenses="MIT"
