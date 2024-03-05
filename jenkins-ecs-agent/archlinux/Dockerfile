@@ -37,10 +37,16 @@ RUN jlink \
 FROM archlinux:base-20240101.0.204074
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" 
 RUN pacman -Syu --noconfirm
-RUN pacman -Syu unzip vim jq --noconfirm
-RUN unzip awscliv2.zip 
-RUN ./aws/install 
+RUN pacman -Syu unzip vim jq sudo ca-certificates --noconfirm
+RUN unzip awscliv2.zip && ./aws/install 
 COPY assume_role.sh .
+RUN install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc
+RUN echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+
 RUN chmod +x assume_role.sh
 ARG user=jenkins
 ARG group=jenkins
@@ -74,8 +80,6 @@ WORKDIR /home/"${user}"
 USER root
 RUN mv /assume_role.sh /home/jenkins/
 USER "${user}"
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    chmod +x kubectl && mkdir -p ~/.local/bin && mv ./kubectl ~/.local/bin/kubectl
 ENV user=${user}
 LABEL \
     org.opencontainers.image.vendor="Jenkins project" \
