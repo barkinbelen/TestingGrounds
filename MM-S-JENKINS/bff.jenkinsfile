@@ -1,10 +1,5 @@
 pipeline {
     agent {label 'Slave-01'}
-
-    environment {
-        ECR = '117201045101.dkr.ecr.eu-central-1.amazonaws.com/bff-service'
-    }
-
     stages {
         stage ('k8s update') {
             steps {
@@ -19,7 +14,7 @@ pipeline {
         stage ('SCM') {
             steps {
                 git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.bff.git',credentialsId: 'Bitbucket-Credential'
-                sh '/usr/bin/aws --profile staging-matchduel  ecr get-login-password | docker login --username AWS --password-stdin  $ECR'
+                sh '/usr/bin/aws --profile staging-matchduel  ecr get-login-password | docker login --username AWS --password-stdin  $STAGING_ECR_URL'
 //----------------- COMMIT ID FIND -------------------------------------------------------------------------------
                 script {
                     env.COMMIT_ID = sh(returnStdout: true, script: "(git rev-parse HEAD | cut -c1-10 )" )
@@ -67,52 +62,52 @@ pipeline {
                     }
                 }
 //----------------- CREATE DEPLOYMENT SET --------------------------------------------------------------------------
-                script {
-                    if (env.NODE_NAME == 'built-in') {
-                        //env.TAG = ("${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("/","-").replace("\n", "" ).replace("^","-").trim())                                                                                                              
-                        env.TAG = ("${env.VERSION_NUMBER}".trim()) 
-                        env.NAMESPACE =  ("${env.VERSION_NUMBER}.${env.BUILD_NUMBER}".replace(".","-").trim())
-                        sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$ECR\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'amd64\'|;s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
-                        sh 'sed \'s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/secret.yaml  > $WORKSPACE/secret_version.yaml'
-                        sh 'sed \'s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/devops/namespace.yaml  > $WORKSPACE/deployment_version.yaml'
+                    script {
+                        if (env.NODE_NAME == 'built-in') {
+                            //env.TAG = ("$JOB_NAME.${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                            env.TAG = ("bff.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                            sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$STAGING_ECR_REPO\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'amd64\'|\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
+                        }
+                        else {
+                            //env.TAG = ("$JOB_NAME.${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                            env.TAG = ("bff.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                            sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$STAGING_ECR_REPO\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'arm64\'|\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
+                        }
                     }
-                    else {
-                        //env.TAG = ("${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("/","-").replace("\n", "" ).replace("^","-").trim())                                                                                                              
-                        env.TAG = ("${env.VERSION_NUMBER}.${env.BUILD_NUMBER}".trim()) 
-                        env.NAMESPACE =  ("${env.VERSION_NUMBER}".replace(".","-").trim())
-                        sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$ECR\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'arm64\'|;s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
-                        sh 'sed \'s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/secret.yaml  > $WORKSPACE/secret_version.yaml'
-                        sh 'sed \'s|__NAMESPACE__|\'$NAMESPACE\'|;\' /var/lib/jenkins/workspace/infrastructure-k8s/devops/namespace.yaml  > $WORKSPACE/namespace_version.yaml'
-                    }   
-                }
-            }
-        }
-        stage ('Build') {
-            steps {
                 script {
-                    docker.build ("$ECR:$TAG" , ".").push()
+                    docker.build ("$STAGING_ECR_REPO:$TAG" , ".").push()
                 }
             }
         }
+//----------------- SONARQUBE --------------------------------------------------------------------------
+//        stage ('SonarQube Analaysis') {
+//            environment {
+//                SCANNER_HOME       = tool 'mynet-ss-for-msbuild'
+//            } 
+//            steps {
+//                withSonarQubeEnv('mynet-sonarqube') {
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet  ${SCANNER_HOME}/SonarScanner.MSBuild.dll begin /k:\"${APP}\""
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet build "
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet  ${SCANNER_HOME}/SonarScanner.MSBuild.dll end"
+//                }
+//            }
+//        }
+//        stage ('Quality Gate') {
+//            steps {
+//                waitForQualityGate abortPipeline: true
+//            }
+//        }
 //----------------- DEPLOY --------------------------------------------------------------------------
         stage ('Kubernetes Deploy') {
             steps {
+                dir ('/var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-bff-service.mobiza.com/') {
+                    sh 'kubectl config use-context $STAGING_EKS'
+                    sh 'kubectl apply -f secret.yaml'
+                }
                 script{
                     sh 'kubectl config use-context $STAGING_EKS'
-                    sh 'kubectl apply -f $WORKSPACE/namespace_version.yaml'
-                    sh 'kubectl apply -f $WORKSPACE/secret_version.yaml'
                     sh 'kubectl apply -f $WORKSPACE/deployment_version.yaml'
-                    sh 'docker rmi $ECR:$TAG '
-                }
-            }
-        }
-        stage ('Git Tag') {
-            steps {
-                script{
-                    withCredentials([gitUsernamePassword(credentialsId: 'Bitbucket-Credential',
-                    gitToolName: 'git-tool')]) {
-                    sh 'git tag mm.$VERSION_NUMBER --force && git push origin mm.$VERSION_NUMBER --force'
-                    }
+                    sh 'docker rmi $STAGING_ECR_REPO:$TAG'
                 }
             }
         }

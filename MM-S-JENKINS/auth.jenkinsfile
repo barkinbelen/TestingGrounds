@@ -1,0 +1,115 @@
+pipeline {
+    agent {label 'Slave-01'}
+    stages {
+        stage ('k8s update') {
+            steps {
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/infrastructure-k8s'
+                    dir (customWorkspace) {
+                        git branch: 'master', url: 'https://bitbucket.org/mynetoyun/matchduel.configs.infrastructure-k8.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+            }
+        }
+        stage ('SCM') {
+            steps {
+                git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.identity.git',credentialsId: 'Bitbucket-Credential'
+                sh '/usr/bin/aws --profile staging-matchduel  ecr get-login-password | docker login --username AWS --password-stdin  $STAGING_ECR_URL'
+//----------------- COMMIT ID FIND -------------------------------------------------------------------------------
+                script {
+                    env.COMMIT_ID = sh(returnStdout: true, script: "(git rev-parse HEAD | cut -c1-10 )" )
+                    env.GIT_BRANCH = sh(returnStdout: true, script: 'git name-rev --name-only HEAD')
+                }
+//----------------- RETURN VERSION -------------------------------------------------------------------------------
+                script {
+                    if (params.UPDATE_VERSION == 'NONE') {
+                        env.COMMIT_ID = sh(returnStdout: true, script: "(git rev-parse HEAD | cut -c1-10 )" )
+                    }
+                    else {
+                        sh 'git checkout $UPDATE_VERSION'
+                        env.COMMIT_ID = params.UPDATE_VERSION
+                    }
+                }
+//----------------- UNDO VERSION -------------------------------------------------------------------------------
+                script {
+                    if (params.UNDO_VERSION == 'YES') {
+                        sh 'kubectl config use-context $STAGING_EKS'
+                        sh ' kubectl rollout undo deployment/${APP}'
+                        currentBuild.getRawBuild().getExecutor().interrupt(Result.SUCCESS)
+                        sleep(1)
+                    }
+                }
+//----------------- RESTART DEPLOYMENT --------------------------------------------------------------------------
+               script {
+                    if (params.RESTART_POD == 'YES') {
+                        sh 'kubectl config use-context $STAGING_EKS'
+                        sh 'kubectl rollout restart deployment $APP -n default'
+                        currentBuild.getRawBuild().getExecutor().interrupt(Result.SUCCESS)
+                        sleep(1)
+                    }
+                }
+//----------------- UPDATE SECRET--------------------------------------------------------------------------
+                script {
+                    if (params.UPDATE_SECRET == 'YES') {
+                        dir ('/var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-auth-service.mobiza.com') {
+                        sh 'kubectl config use-context $STAGING_EKS'
+                        sh 'kubectl apply -f secret.yaml'
+                    }
+                    sh 'kubectl config use-context $STAGING_EKS'
+                    sh 'kubectl rollout restart deployment $APP -n default'
+                    currentBuild.getRawBuild().getExecutor().interrupt(Result.SUCCESS)
+                    sleep(1)
+                    }
+                }
+//----------------- CREATE DEPLOYMENT SET --------------------------------------------------------------------------
+                script {
+                    if (env.NODE_NAME == 'built-in') {
+                        //env.TAG = ("matchduel-auth-service.${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                        env.TAG = ("auth-service.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())
+                        sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$STAGING_ECR_REPO\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'amd64\'|\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-auth-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
+                    }
+                    else {
+                        //env.TAG = ("matchduel-auth-service.${env.GIT_BRANCH}.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())                                                                                                              
+                        env.TAG = ("auth-service.${env.COMMIT_ID}".replace("\n", "" ).replace("^","-").trim())
+                        sh 'sed \'s|__VERSION__|\'$TAG\'|;s|__REPO__|\'$STAGING_ECR_REPO\'|;s|__APP__|\'$APP\'|;s|__REQUESTMEMORY__|\'$REQUESTMEMORY\'|;s|__REQUESTCPU__|\'$REQUESTCPU\'|;s|__LIMITMEMORY__|\'$LIMITMEMORY\'|;s|__LIMITCPU__|\'$LIMITCPU\'|;s|__ARCHITECTURE__|\'arm64\'|\' /var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-auth-service.mobiza.com/deployment.yaml  > $WORKSPACE/deployment_version.yaml'
+                    }
+                }
+                script {
+                    docker.build ("$STAGING_ECR_REPO:$TAG" , ".").push()
+                }
+            }
+        }
+//----------------- SONARQUBE --------------------------------------------------------------------------
+//        stage ('SonarQube Analaysis') {
+//            environment {
+//                SCANNER_HOME       = tool 'mynet-ss-for-msbuild'
+//            } 
+//            steps {
+//                withSonarQubeEnv('mynet-sonarqube') {
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet  ${SCANNER_HOME}/SonarScanner.MSBuild.dll begin /k:\"${APP}\""
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet build "
+//                    sh "/home/jenkins-slave-01/dotnet7/dotnet  ${SCANNER_HOME}/SonarScanner.MSBuild.dll end"
+//                }
+//            }
+//        }
+//        stage ('Quality Gate') {
+//            steps {
+//                waitForQualityGate abortPipeline: true
+//            }
+//        }
+//----------------- DEPLOY --------------------------------------------------------------------------
+        stage ('Kubernetes Deploy') {
+            steps {
+                dir ('/var/lib/jenkins/workspace/infrastructure-k8s/mobiza.com/matchduel/staging/staging-matchduel-auth-service.mobiza.com/') {
+                    sh 'kubectl config use-context $STAGING_EKS'
+                    sh 'kubectl apply -f secret.yaml'
+                }
+                script{
+                    sh 'kubectl config use-context $STAGING_EKS'
+                    sh 'kubectl apply -f $WORKSPACE/deployment_version.yaml'
+                    sh 'docker rmi $STAGING_ECR_REPO:$TAG'
+                }
+            }
+        }
+    }
+}

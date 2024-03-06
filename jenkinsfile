@@ -1,20 +1,178 @@
 pipeline {
-    agent {label 'Master'}
-    
-    environment {
-        ECR = '750607538523.dkr.ecr.eu-central-1.amazonaws.com/admin-web'
-    }
+    agent {label 'Slave-01'}
     stages {
-        stage ('git pull') {
+        stage ('SCM') {
             steps {
                 script {
-                    git branch: 'main', url: 'https://github.com/barkinbelen/TestingGrounds.git'
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/admin-web'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.web.git',credentialsId: 'Bitbucket-Credential'
                     }
+                }
                 script {
-                        sh '/usr/bin/aws --profile devops-mynet ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 920907312150.dkr.ecr.eu-central-1.amazonaws.com'
-                        docker.build("920907312150.dkr.ecr.eu-central-1.amazonaws.com/jenkins-ecs-agent:latest").push()
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/auth-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.identity.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/bff-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.bff.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/game-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.game.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/matchmaking-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.matchmaking.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/meta-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.meta.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/social-service'
+                    dir (customWorkspace) {
+                        git branch: 'test', url: 'https://bitbucket.org/mynetoyun/gamebox.service.social.git',credentialsId: 'Bitbucket-Credential'
+                    }
+                }
+                script {
+                    def customWorkspace = '/var/lib/jenkins/workspace/staging-matchduel-version-deploy-pipeline/ingress'
+                    dir (customWorkspace) {
+                        git branch: 'main', url: 'https://bitbucket.org/mynetoyun/matchduel.configs.infrastructure-ingress.git',credentialsId: 'Bitbucket-Credentials'
                     }
                 }
             }
         }
+        stage ('Get Version') {
+            steps {
+                script {
+                    echo "Getting version.txt"
+                    sh '/usr/bin/aws s3 cp s3://vuvy-game-version-bucket/games/madnessmatch/version.txt . --profile devops-mynet'
+                    sh '/usr/bin/aws s3 cp s3://vuvy-game-version-bucket/devops/ . --recursive --profile devops-mynet'
+                    sh 'chmod +x ./major-version.sh && chmod +x ./minor-version.sh && chmod +x ./patch-version.sh'
+                    // if (params.VERSION_UPDATE == 'major') {
+                    //     sh './major-version.sh version.txt'
+                    // }
+                    // if (params.VERSION_UPDATE == 'minor') {
+                    //     sh './minor-version.sh version.txt'
+                    // }
+                    // if (params.VERSION_UPDATE == 'patch') {
+                    //     sh './patch-version.sh version.txt'
+                    // }
+                    sh 'echo ".t" >> version.txt'
+                    sh "tr -d '[:space:]' < version.txt > new_version.txt"
+                    env.VERSION=(sh(returnStdout: true, script: 'cat new_version.txt')).trim()
+                    sh 'echo $VERSION'
+                }
+            }
+        }
+        /*
+        stage ('Trigger ADMIN_WEB') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for ADMIN_WEB"
+                        env.BRANCH_NAME = "${ADMIN_WEB_BRANCH}".substring("${ADMIN_WEB_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-admin-web-version', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+        */
+        stage ('Trigger AUTH_SERVICE') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for AUTH_SERVICE"
+                        env.BRANCH_NAME = "${AUTH_SERVICE_BRANCH}".substring("${AUTH_SERVICE_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-auth-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+        stage ('Trigger BFF_SERVICE') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for BFF_SERVICE"
+                        env.BRANCH_NAME = "${BFF_SERVICE_BRANCH}".substring("${BFF_SERVICE_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-bff-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+         stage ('Trigger GAME_SERVICE') {
+             steps {
+                 script {
+                     if (params.DEPLOY == 'YES') {
+                         echo "Triggering job for GAME_SERVICE"
+                         env.BRANCH_NAME = "${GAME_SERVICE_BRANCH}".substring("${GAME_SERVICE_BRANCH}".indexOf('/') + 1)
+                         build(job: 'staging-matchduel-game-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                     }
+                 }
+             }
+         }
+        stage ('Trigger MATCHMAKING_SERVICE') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for MATCHMAKING_SERVICE"
+                        env.BRANCH_NAME = "${MATCHMAKING_SERVICE_BRANCH}".substring("${MATCHMAKING_SERVICE_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-matchmaking-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+        stage ('Trigger META_SERVICE') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for META_SERVICE"
+                        env.BRANCH_NAME = "${META_SERVICE_BRANCH}".substring("${META_SERVICE_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-meta-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+        stage ('Trigger SOCIAL_SERVICE') {
+            steps {
+                script {
+                    if (params.DEPLOY == 'YES') {
+                        echo "Triggering job for SOCIAL_SERVICE"
+                        env.BRANCH_NAME = "${SOCIAL_SERVICE_BRANCH}".substring("${SOCIAL_SERVICE_BRANCH}".indexOf('/') + 1)
+                        build(job: 'staging-matchduel-social-service', parameters: [string(name: 'VERSION_NUMBER', value: "$env.VERSION"), string(name: 'BRANCH_NAME', value: "$env.BRANCH_NAME")])
+                    }
+                }
+            }
+        }
+        stage ('Kubernetes Deploy') {
+            steps {
+                script{
+                    env.NAMESPACE=  ("$env.VERSION".replace(".","-").trim())
+                    sh 'sed "s/__NAMESPACE__/\"$NAMESPACE\"/;s/__VERSION__/\"$VERSION\"/" ingress/mobiza.com/matchduel/staging/ingress_template.yaml  > $WORKSPACE/ingress/ingress_version.yaml'
+                    sh 'kubectl config use-context $STAGING_EKS'
+                    sh 'kubectl apply -f $WORKSPACE/ingress/ingress_version.yaml'
+                }
+            }
+        }
+        stage ('finito') {
+            steps {
+                script {
+                    // echo "Pushing New Version File"
+                    // sh '/usr/bin/aws s3 cp version.txt s3://vuvy-game-version-bucket/games/madnessmatch/version.txt --profile devops-mynet'
+                    echo "Version ${env.VERSION} has been deployed"
+                }
+            }
+        }
     }
+}
